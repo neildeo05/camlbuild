@@ -1,4 +1,4 @@
 *.byte
 *.native
-_tags/
+_tags
 _build/
