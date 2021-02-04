@@ -11,6 +11,9 @@ $ ./camlbuild build
 ## Requirements:
 - [OCaml](https://ocaml.org/docs/install.html)
 
+## Pipeline:
+1. Create a toolchain -
+  make dir, build all in dir, build single file, 
 
 ## TODO:
 - [X] Use Sys.argv to get command line arguments
@@ -18,6 +21,7 @@ $ ./camlbuild build
 - [ ] Separate into different operating systems
 - [ ] Use Unix module rather that Sys for Linux and MacOS
   - Unix module allows capturing output
+- [ ] If a directory contains multiple subdirectories, build all file in the subdirectories
 - [ ] Add testing functionality
   - `hello.camltest` => contains expected output
   - `build.ml`       => contains toolchain
