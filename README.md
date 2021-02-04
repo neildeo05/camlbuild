@@ -9,7 +9,7 @@ camlbuild   help        => Runs the help commmand
 $ ./camlbuild build
 ```
 ## Requirements:
-- [OCaml][https://ocaml.org/docs/install.html]
+- [OCaml](https://ocaml.org/docs/install.html)
 
 
 ## TODO:
