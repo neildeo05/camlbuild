@@ -12,8 +12,11 @@ let rec print_list l=
 
 let unwrap_command status =
   match status with
-  | Success (x, y) -> print_endline ("command " ^ y ^ " was successful")
-  | Fail (x, y) -> print_endline ("ERROR: command " ^ y ^ " failed with exit code " ^ (string_of_int x))
+  | Success (x, y) -> Printf.printf "%s\n\n" ("command " ^ y ^ " was successful")
+  | Fail (x, y) -> let _ =
+                     Printf.printf "%s\n\n"
+                       ("ERROR: command " ^ y ^ " failed with exit code " ^ (string_of_int x))
+                   in exit 1
 
 let construct_path (starting_directory: string) ?(sep="/") (path:string list) =
   starting_directory ^ sep ^ (String.concat sep path)
@@ -43,8 +46,9 @@ let build_file_with_output comp ?(output_tag="-o") flags output_path input_path=
 
 let build_file_no_output comp flags input_path =
   let command = comp ^ " " ^ flags ^ " " ^ input_path in
+  let _ = print_endline ("[OUTPUT] => " ^ input_path) in
   match Sys.command command with
-  | 0 -> Success (0, command)
+  | 0 -> let _ = print_endline ("===========================") in Success (0, command)
   | x -> Fail (x, command)
 
 (*******************************)
@@ -80,43 +84,58 @@ let rec _BUILD_ALL_OUTPUT compiler ?(flags="") (input_chain, output_chain) =
              | y::ys -> let _ = unwrap_command  (build_file_with_output compiler flags y x) in
                         _BUILD_ALL_OUTPUT compiler ~flags:flags (xs, ys)
              end
-let rec _BUILD_ALL compiler ?(flags="") input_chain =
+let rec _BUILD_ALL ~cc:compiler ?(flags="") ~input:input_chain =
   match input_chain with
   | [] -> print_string ""
   | x::xs -> let _ = unwrap_command (build_file_no_output compiler flags x) in
-             _BUILD_ALL compiler ~flags:flags xs
+             _BUILD_ALL ~cc:compiler ~flags:flags ~input:xs
+
+let _CONSTRUCT_CHAIN input_path output_path ext =
+  (_INPUT_FROM_DIR input_path ext, _OUTPUT_FROM_DIR output_path input_path ext)
+
+let _BUILD_FILE_OUTPUT cc ?(flags="") ?(output_tag="-o") input_name output_name =
+  (build_file_with_output cc ~output_tag:output_tag flags output_name input_name)
+  |> unwrap_command
+let _BUILD_FILE cc ?(flags="") input_name =
+  build_file_no_output cc flags input_name
+  |> unwrap_command
+let _PRINT_HELP () =
+  print_endline "camlbuild   run       => Runs the toolchain provided";
+  print_endline "camlbuild   tests     => Runs the toolchain provided, and checks all of the asserts in the toolchain";
+  print_endline "camlbuild   help      => Runs the help commmand"
+
+let _RUN toolchain =
+  match Array.get (Sys.argv) 1  with
+  | "help" -> let _ = _PRINT_HELP () in exit 0
+  | "build" -> toolchain ()
+  | _ -> let _ = _PRINT_HELP () in exit 1
 
 end
 
-let () =
-  (* Make the output directories *)
-  (*
-   * _INPUT_FROM_DIR "tests" "c"
-   * |> print_list; *)
-  (* build_file_with_output "cc" "./tests/main.c" "./build/main" *)
-  (* print_list (_OUTPUT_FROM_DIR (_PATH ["build"]) (_PATH ["tests"]) "c");
-   * print_list (_INPUT_FROM_DIR (_PATH ["tests"]) "c"); *)
+let toolchain () =
+  Camlbuild._BUILD_ALL
+    "python"
+    (Camlbuild._INPUT_FROM_DIR (Camlbuild._PATH ["pytests"]) "py");
 
-  (* Make build directory *)
-  Camlbuild._MKDIR(Camlbuild._PATH (["cbuild"]));
-
-  (* Build all with compiler *)
   Camlbuild._BUILD_ALL_OUTPUT "cc" ~flags:"-Wall -Werror"
-    ((Camlbuild._INPUT_FROM_DIR (Camlbuild._PATH ["ctests"]) "c"),
-     (Camlbuild._OUTPUT_FROM_DIR (Camlbuild._PATH ["cbuild"]) (Camlbuild._PATH ["ctests"]) "c"));
-  (* let files = "ml" in
-   * let path = (Camlbuild._PATH ["ocamltests"]) in
-   * Camlbuild._INPUT_FROM_DIR path files
-   * |> Camlbuild._BUILD_ALL "ocaml";
-   * 
-   * (\* let files = "py" in
-   *  * let path = (_PATH ["pytests"]) in
-   *  *   _INPUT_FROM_DIR path files
-   *  * |> _BUILD_ALL "python"; *\)
-   * 
-   * Camlbuild._PATH (["gobuild"]) |> Camlbuild._MKDIR;
-   * let files = "go" in
-   * let path = (Camlbuild._PATH ["gotests"]) in
-   * ((Camlbuild._INPUT_FROM_DIR path files),
-   *  (Camlbuild._OUTPUT_FROM_DIR (Camlbuild._PATH ["gobuild"]) path files))
-   * |> Camlbuild._BUILD_ALL_OUTPUT "go" ~flags:"build"; *)
+    (Camlbuild._CONSTRUCT_CHAIN
+       (Camlbuild._PATH ["ctests"])
+       (Camlbuild._PATH ["cbuild"])
+       "c"
+    );
+
+  Camlbuild._MKDIR (Camlbuild._PATH ["cbuild"; "otherbuild"]);
+
+  Camlbuild._BUILD_ALL_OUTPUT "cc" ~flags: "-Wall -Werror"
+    (Camlbuild._CONSTRUCT_CHAIN
+       (Camlbuild._PATH ["ctests"; "othertests"])
+       (Camlbuild._PATH ["cbuild"; "otherbuild"])
+       "c"
+    );
+
+  Camlbuild._BUILD_FILE "python" (Camlbuild._PATH ["pytests"; "additional"; "add.py"])
+
+let () =
+  Camlbuild._RUN toolchain
+
+

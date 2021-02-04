@@ -1,2 +1,3 @@
-a = raw_input(' ')
+a = "%d%d"
+# adfasdkl;fjasdfl;kajsdl;
 print(str(a))
